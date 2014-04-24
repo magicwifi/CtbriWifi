@@ -62,6 +62,7 @@ extern char ** restartargv;
 static void *thread_wdctl_handler(void *);
 static void wdctl_status(int);
 static void wdctl_stop(int);
+static void wdctl_clean(int);
 static void wdctl_reset(int, const char *);
 static void wdctl_restart(int);
 
@@ -186,7 +187,11 @@ thread_wdctl_handler(void *arg)
 		wdctl_status(fd);
 	} else if (strncmp(request, "stop", 4) == 0) {
 		wdctl_stop(fd);
-	} else if (strncmp(request, "reset", 5) == 0) {
+	}
+	else if (strncmp(request, "clean", 5) == 0) {
+		wdctl_clean(fd);
+	}
+	 else if (strncmp(request, "reset", 5) == 0) {
 		wdctl_reset(fd, (request + 6));
 	} else if (strncmp(request, "restart", 7) == 0) {
 		wdctl_restart(fd);
@@ -232,6 +237,15 @@ wdctl_stop(int fd)
 	pid = getpid();
 	kill(pid, SIGINT);
 }
+
+
+static void
+wdctl_clean(int fd)
+{
+	fw_destroy();
+}
+
+
 
 static void
 wdctl_restart(int afd)

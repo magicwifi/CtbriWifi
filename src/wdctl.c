@@ -49,6 +49,7 @@ static int connect_to_server(const char *);
 static size_t send_request(int, const char *);
 static void wdctl_status(void);
 static void wdctl_stop(void);
+static void wdctl_clean(void);
 static void wdctl_reset(void);
 static void wdctl_restart(void);
 
@@ -124,7 +125,11 @@ parse_commandline(int argc, char **argv)
 
     if (strcmp(*(argv + optind), "status") == 0) {
 	    config.command = WDCTL_STATUS;
-    } else if (strcmp(*(argv + optind), "stop") == 0) {
+    } 
+    else if (strcmp(*(argv + optind), "clean") == 0) {
+	    config.command = WDCTL_CLEAN;
+    } 
+    else if (strcmp(*(argv + optind), "stop") == 0) {
 	    config.command = WDCTL_STOP;
     } else if (strcmp(*(argv + optind), "reset") == 0) {
 	    config.command = WDCTL_KILL;
@@ -232,6 +237,30 @@ wdctl_stop(void)
 	close(sock);
 }
 
+static void
+wdctl_clean(void)
+{
+	int	sock;
+	char	buffer[4096];
+	char	request[16];
+	int	len;
+
+	sock = connect_to_server(config.socket);
+		
+	strncpy(request, "clean\r\n\r\n", 15);
+
+	len = send_request(sock, request);
+	
+	while ((len = read(sock, buffer, sizeof(buffer))) > 0) {
+		buffer[len] = '\0';
+		printf("%s", buffer);
+	}
+
+	shutdown(sock, 2);
+	close(sock);
+}
+
+
 void
 wdctl_reset(void)
 {
@@ -308,7 +337,11 @@ main(int argc, char **argv)
 	case WDCTL_STOP:
 		wdctl_stop();
 		break;
-
+	
+	case WDCTL_CLEAN:
+		wdctl_clean();
+		break;
+	
 	case WDCTL_KILL:
 		wdctl_reset();
 		break;
