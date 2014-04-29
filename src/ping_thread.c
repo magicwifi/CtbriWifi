@@ -52,9 +52,13 @@
 #include "util.h"
 #include "centralserver.h"
 #include "retrieve_thread.h"
+#include "fetchconf.h"
 
 static void ping(void);
 
+
+
+extern int level;
 extern time_t started_time;
 
 /** Launches a thread that periodically checks in with the wifidog auth server to perform heartbeat function.
@@ -109,7 +113,7 @@ ping(void)
 	auth_server = get_auth_server();
 	    char            *str = NULL;
          char            *str1 = NULL;
-
+	s_config *config=config_get_config();
 	
 	
 	
@@ -126,6 +130,22 @@ ping(void)
 		 * No auth servers for me to talk to
 		 */
 		return;
+	}else{
+		
+		if (level!=0){
+			level =0;
+
+			debug(LOG_DEBUG, "The Auth Server is Ok");
+			fetchconf(config);
+			
+			fw_destroy();
+			if (!fw_init()) {
+				debug(LOG_ERR, "FATAL: Failed to initialize firewall");
+				exit(1);
+			}
+		}	
+		
+	
 	}
 
 	/*

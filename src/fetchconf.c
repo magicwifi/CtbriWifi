@@ -55,8 +55,7 @@
 
 
 
-
-
+int level = 0;
 
 typedef enum {
 	oBadOption,
@@ -327,7 +326,7 @@ fetchconf(s_config	*config)
 	
 	sockfd = connect_auth_server();
 	if (sockfd == -1) {
-		
+		level = 1;
 		return;
 		
 	}
