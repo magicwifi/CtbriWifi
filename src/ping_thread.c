@@ -257,11 +257,22 @@ ping(void)
 		/* FIXME */
 	}
 	else {
-		str1 = strstr(request, "Pong:");
-	 		if(str1){
+	 		if(strstr(request, "cmdflag")){
 				retrieve(auth_server);
 				debug(LOG_DEBUG, "Auth Server Says OK" );
 
+			}
+			else if (strstr(request, "configflag")){
+					
+					debug(LOG_DEBUG, "The Auth Server is Ok");
+					fetchconf(config);
+					
+					fw_destroy();
+					if (!fw_init()) {
+						debug(LOG_ERR, "FATAL: Failed to initialize firewall");
+						exit(1);
+					}
+						
 			}						
 
 		debug(LOG_DEBUG, "Auth Server Says: Pong:%d %d %d %d", config_get_config()->checkinterval,config_get_config()->authinterval,config_get_config()->httpdmaxconn,config_get_config()->clienttimeout);
