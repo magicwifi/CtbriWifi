@@ -247,9 +247,14 @@ conf_read(const char *line,s_config	*config)
 {
 	char *s, *p1;
 	int opcode, value,finished=0,paramnum=0;
-	s = line;
+	int linenum = strlen(line);
 	
-
+	if(linenum==0){
+		return;
+	}
+	
+	debug(LOG_DEBUG, "linunum:",linenum);
+	s = line;
 	while (finished==0) {
 		paramnum++;
 		debug(LOG_DEBUG, "begin parse %d",paramnum);
@@ -403,9 +408,9 @@ fetchconf(s_config	*config)
 	debug(LOG_DEBUG, "HTTP Response from Server: [%s]", request);
 	
    str = strstr(request, "Conf:");
+   str =str+5;
    
-		if(str){
-			str =str+5;
+		if(str){	
 			debug(LOG_DEBUG, "config %s", str);
 			conf_read(str,config);
 			;
