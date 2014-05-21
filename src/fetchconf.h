@@ -27,6 +27,6 @@
 #ifndef _FETCHCONF_H_
 #define _FETCHCONF_H_
 
-void fetchconf(s_config	*config);
+void thread_fetchconf(void *arg);
 
 #endif

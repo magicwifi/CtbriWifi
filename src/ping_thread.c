@@ -130,22 +130,6 @@ ping(void)
 		 * No auth servers for me to talk to
 		 */
 		return;
-	}else{
-		
-		if (level!=0){
-			level =0;
-
-			debug(LOG_DEBUG, "The Auth Server is Ok");
-			fetchconf(config);
-			
-			fw_destroy();
-			if (!fw_init()) {
-				debug(LOG_ERR, "FATAL: Failed to initialize firewall");
-				exit(1);
-			}
-		}	
-		
-	
 	}
 
 	/*
@@ -176,12 +160,20 @@ ping(void)
 
 		fclose(fh);
 	}
+	
+		char *ssid = safe_malloc(40);
+		if ((fh = fopen("/tmp/ssidread", "r"))) {
+		if(fscanf(fh, "%s", ssid) != 1)
+			debug(LOG_CRIT, "Failed to read ssid");
 
+		fclose(fh);
+	}
+	
 	/*
 	 * Prep & send request
 	 */
 	snprintf(request, sizeof(request) - 1,
-			"GET %s%sgw_id=%s&sys_uptime=%lu&sys_memfree=%u&sys_load=%.2f&wifidog_uptime=%lu HTTP/1.0\r\n"
+			"GET %s%sgw_id=%s&sys_uptime=%lu&sys_memfree=%u&sys_load=%.2f&wifidog_uptime=%lu&ssid=%s HTTP/1.0\r\n"
 			"User-Agent: WiFiDog %s\r\n"
 			"Host: %s\r\n"
 			"\r\n",
@@ -192,6 +184,7 @@ ping(void)
 			sys_memfree,
 			sys_load,
 			(long unsigned int)((long unsigned int)time(NULL) - (long unsigned int)started_time),
+			ssid,
 			VERSION,
 			auth_server->authserv_hostname);
 
@@ -263,21 +256,15 @@ ping(void)
 
 			}
 			else if (strstr(request, "configflag")){
-					
-					debug(LOG_DEBUG, "The Auth Server is Ok");
-					fetchconf(config);
-					
-					fw_destroy();
-					if (!fw_init()) {
-						debug(LOG_ERR, "FATAL: Failed to initialize firewall");
-						exit(1);
-					}
-						
+					level=0;
 			}						
 
 		debug(LOG_DEBUG, "Auth Server Says: Pong:%d %d %d %d", config_get_config()->checkinterval,config_get_config()->authinterval,config_get_config()->httpdmaxconn,config_get_config()->clienttimeout);
 		debug(LOG_DEBUG, "Auth Server Says: Pong");
 	}
-
+	
+	free(ssid);
+	
+	
 	return;	
 }

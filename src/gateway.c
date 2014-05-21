@@ -67,7 +67,7 @@
  */
 static pthread_t tid_fw_counter = 0;
 static pthread_t tid_ping = 0; 
-
+static pthread_t tid_fetchconf = 0; 
 /* The internal web server */
 httpd * webserver = NULL;
 
@@ -299,6 +299,12 @@ termination_handler(int s)
 		pthread_kill(tid_ping, SIGKILL);
 	}
 
+	if (tid_fetchconf) {
+		debug(LOG_INFO, "Explicitly killing the fetchconf thread");
+		pthread_kill(tid_fetchconf, SIGKILL);
+	}
+
+
 	debug(LOG_NOTICE, "Exiting...");
 	exit(s == 0 ? 1 : 0);
 }
@@ -448,6 +454,15 @@ main_loop(void)
 	}
 	pthread_detach(tid_ping);
 	
+	
+	result = pthread_create(&tid_fetchconf, NULL, (void *)thread_fetchconf, NULL);
+	if (result != 0) {
+	    debug(LOG_ERR, "FATAL: Failed to create a new thread (fetchconf) - exiting");
+		termination_handler(0);
+	}
+	pthread_detach(tid_fetchconf);
+	
+	
 	debug(LOG_NOTICE, "Waiting for connections");
 	while(1) {
 		r = httpdGetConnection(webserver, NULL);
@@ -516,7 +531,6 @@ int main(int argc, char **argv) {
 		}
 	}
 	
-	fetchconf(config);
 	config_validate();
 
 	/* Initializes the linked list of connected clients */

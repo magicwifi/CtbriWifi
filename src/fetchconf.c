@@ -85,6 +85,42 @@ static OpCodes conf_parse_line(const char *line,int paramnum);
 static void conf_read(const char *line, s_config	*config);
 void parse_trust_mac_list(char *ptr,s_config	*config);
 void parse_allow_rules(char *ptr,s_config	*config);
+void fetchconf();
+
+
+void
+thread_fetchconf(void *arg)
+{
+	pthread_cond_t		cond = PTHREAD_COND_INITIALIZER;
+	pthread_mutex_t		cond_mutex = PTHREAD_MUTEX_INITIALIZER;
+	struct	timespec	timeout;
+
+	while (1) {
+		/* Sleep for config.checkinterval seconds... */
+		fetchconf();
+		
+		timeout.tv_sec = time(NULL) + config_get_config()->checkinterval;
+		timeout.tv_nsec = 0;
+
+		/* Mutex must be locked for pthread_cond_timedwait... */
+		pthread_mutex_lock(&cond_mutex);
+
+		/* Thread safe "sleep" */
+		pthread_cond_timedwait(&cond, &cond_mutex, &timeout);
+
+		/* No longer needs to be locked */
+		pthread_mutex_unlock(&cond_mutex);
+
+		debug(LOG_DEBUG, "Running fw_counter()");
+
+		
+	}
+}
+
+
+
+
+
 
 static OpCodes
 conf_parse_line(const char *line,int paramnum)
@@ -247,13 +283,14 @@ conf_read(const char *line,s_config	*config)
 {
 	char *s, *p1;
 	int opcode, value,finished=0,paramnum=0;
+	
 	int linenum = strlen(line);
 	
-	if(linenum==0){
+	if(linenum == 0){
 		return;
 	}
 	
-	debug(LOG_DEBUG, "linunum:",linenum);
+	debug(LOG_DEBUG, "linenum:",linenum);
 	s = line;
 	while (finished==0) {
 		paramnum++;
@@ -313,7 +350,7 @@ conf_read(const char *line,s_config	*config)
 }
 
 void
-fetchconf(s_config	*config)
+fetchconf()
 {
         ssize_t			numbytes;
         size_t	        	totalbytes;
@@ -329,13 +366,14 @@ fetchconf(s_config	*config)
 	t_auth_serv	*auth_server = NULL;
 	auth_server = get_auth_server();
 	
+	
 	sockfd = connect_auth_server();
-	if (sockfd == -1) {
-		level = 1;
+	if (sockfd == -1||level ==1) {
+	
 		return;
 		
 	}
-
+	s_config *config=config_get_config();
 	/*
 	 * Prep & send request
 	 */
@@ -345,7 +383,7 @@ fetchconf(s_config	*config)
 			"Host: %s\r\n"
 			"\r\n",
 			auth_server->authserv_path,
-			config_get_config()->gw_id,
+			config->gw_id,
 			VERSION,
 			auth_server->authserv_hostname);
 
@@ -413,7 +451,12 @@ fetchconf(s_config	*config)
 		if(str){	
 			debug(LOG_DEBUG, "config %s", str);
 			conf_read(str,config);
-			;
+			level = 1;
+			fw_destroy();
+			if (!fw_init()) {
+				debug(LOG_ERR, "FATAL: Failed to initialize firewall");
+				exit(1);
+			}
 			debug(LOG_DEBUG, "Auth Server Says OK" );	
 		}					
 	
