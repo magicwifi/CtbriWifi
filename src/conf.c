@@ -890,7 +890,9 @@ mark_auth_server_bad(t_auth_serv *bad_server)
 		/* Remove bad server from start of list */
 		config.auth_servers = bad_server->next;
 		/* Set the next pointe to NULL in the last element */
-		bad_server->next = NULL;
+		tmp->next = NULL;
+		bad_server = NULL;
+		/* bad_server->next = NULL; */
 	}
 
 }

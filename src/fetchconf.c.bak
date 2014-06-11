@@ -65,7 +65,6 @@ typedef enum {
 	oHTTPDMaxConn,
 	oTrustedMACList,
 	oFirewallRule,
-	oAuthServer,
 } OpCodes;
 
 
@@ -79,7 +78,6 @@ static const struct {
 	{ "httpdmaxconn",       	oHTTPDMaxConn },
 	{ "trustedmaclist",		oTrustedMACList },
 	{ "firewallrule",		oFirewallRule },
-	{ "authserver",         	oAuthServer },
 	{ NULL,				oBadOption },
 };
 
@@ -87,43 +85,6 @@ static OpCodes conf_parse_line(const char *line,int paramnum);
 static void conf_read(const char *line, s_config	*config);
 void parse_trust_mac_list(char *ptr,s_config	*config);
 void parse_allow_rules(char *ptr,s_config	*config);
-void parse_auth_server();
-void fetchconf();
-
-
-void
-thread_fetchconf(void *arg)
-{
-	pthread_cond_t		cond = PTHREAD_COND_INITIALIZER;
-	pthread_mutex_t		cond_mutex = PTHREAD_MUTEX_INITIALIZER;
-	struct	timespec	timeout;
-
-	while (1) {
-		/* Sleep for config.checkinterval seconds... */
-		fetchconf();
-		
-		timeout.tv_sec = time(NULL) + config_get_config()->checkinterval;
-		timeout.tv_nsec = 0;
-
-		/* Mutex must be locked for pthread_cond_timedwait... */
-		pthread_mutex_lock(&cond_mutex);
-
-		/* Thread safe "sleep" */
-		pthread_cond_timedwait(&cond, &cond_mutex, &timeout);
-
-		/* No longer needs to be locked */
-		pthread_mutex_unlock(&cond_mutex);
-
-		debug(LOG_DEBUG, "Running fw_counter()");
-
-		
-	}
-}
-
-
-
-
-
 
 static OpCodes
 conf_parse_line(const char *line,int paramnum)
@@ -286,14 +247,13 @@ conf_read(const char *line,s_config	*config)
 {
 	char *s, *p1;
 	int opcode, value,finished=0,paramnum=0;
-	
 	int linenum = strlen(line);
 	
-	if(linenum == 0){
+	if(linenum==0){
 		return;
 	}
 	
-	debug(LOG_DEBUG, "linenum:",linenum);
+	debug(LOG_DEBUG, "linunum",linenum);
 	s = line;
 	while (finished==0) {
 		paramnum++;
@@ -337,9 +297,6 @@ conf_read(const char *line,s_config	*config)
 			case oFirewallRule:
 				parse_allow_rules(p1,config);
 				break;
-			case oAuthServer:
-				parse_auth_server(p1,config);
-				break;
 			case oBadOption:
 				debug(LOG_DEBUG, "oBadOption");
 				break;
@@ -356,78 +313,7 @@ conf_read(const char *line,s_config	*config)
 }
 
 void
-parse_auth_server(char *ptr,s_config	*config)
-{
-	char		*host = ptr,
-			*path = NULL,
-			*loginscriptpathfragment = NULL,
-			*portalscriptpathfragment = NULL,
-			*msgscriptpathfragment = NULL,
-			*pingscriptpathfragment = NULL,
-			*authscriptpathfragment = NULL;
-	int		http_port,
-			ssl_port,
-			ssl_available;
-			
-	t_auth_serv	*new,
-			*tmp;
-	
-		/* only proceed if we have an host and a path */
-	if (host == NULL)
-		return;
-	
-	
-	/* Defaults */
-	path = safe_strdup(DEFAULT_AUTHSERVPATH);
-	loginscriptpathfragment = safe_strdup(DEFAULT_AUTHSERVLOGINPATHFRAGMENT);
-	portalscriptpathfragment = safe_strdup(DEFAULT_AUTHSERVPORTALPATHFRAGMENT);
-	msgscriptpathfragment = safe_strdup(DEFAULT_AUTHSERVMSGPATHFRAGMENT);
-	pingscriptpathfragment = safe_strdup(DEFAULT_AUTHSERVPINGPATHFRAGMENT);
-	authscriptpathfragment = safe_strdup(DEFAULT_AUTHSERVAUTHPATHFRAGMENT);
-	http_port = DEFAULT_AUTHSERVPORT;
-	ssl_port = DEFAULT_AUTHSERVSSLPORT;
-	ssl_available = DEFAULT_AUTHSERVSSLAVAILABLE;
-
-
-
-	/* Allocate memory */
-	new = safe_malloc(sizeof(t_auth_serv));
-
-	/* Fill in struct */
-	memset(new, 0, sizeof(t_auth_serv)); /*< Fill all with NULL */
-	new->authserv_hostname = host;
-	new->authserv_use_ssl = ssl_available;
-	new->authserv_path = path;
-	new->authserv_login_script_path_fragment = loginscriptpathfragment;
-	new->authserv_portal_script_path_fragment = portalscriptpathfragment;
-	new->authserv_msg_script_path_fragment = msgscriptpathfragment;    
-	new->authserv_ping_script_path_fragment = pingscriptpathfragment;  
-	new->authserv_auth_script_path_fragment = authscriptpathfragment;  
-	new->authserv_http_port = http_port;
-	new->authserv_ssl_port = ssl_port;
-
-	t_auth_serv	*auth_servers = NULL;
-	auth_servers = config->auth_servers;
-	
-	for (tmp = auth_servers; tmp->next != NULL;tmp = tmp->next);
-	tmp->next = new;
-	mark_auth_server_bad(auth_servers);
-	/*
-	mark_auth_server_bad(auth_servers);
-	*/
-	debug(LOG_DEBUG, "Auth server added from Platform");
-	
-	
-}
-
-
-
-
-
-
-
-void
-fetchconf()
+fetchconf(s_config	*config)
 {
         ssize_t			numbytes;
         size_t	        	totalbytes;
@@ -443,14 +329,13 @@ fetchconf()
 	t_auth_serv	*auth_server = NULL;
 	auth_server = get_auth_server();
 	
-	
 	sockfd = connect_auth_server();
-	if (sockfd == -1||level ==1) {
-	
+	if (sockfd == -1) {
+		level = 1;
 		return;
 		
 	}
-	s_config *config=config_get_config();
+
 	/*
 	 * Prep & send request
 	 */
@@ -460,7 +345,7 @@ fetchconf()
 			"Host: %s\r\n"
 			"\r\n",
 			auth_server->authserv_path,
-			config->gw_id,
+			config_get_config()->gw_id,
 			VERSION,
 			auth_server->authserv_hostname);
 
@@ -522,18 +407,13 @@ fetchconf()
 	
 	debug(LOG_DEBUG, "HTTP Response from Server: [%s]", request);
 	
-   	str = strstr(request, "Conf:");
-   	str =str+5;
+   str = strstr(request, "Conf:");
+   str =str+5;
    
 		if(str){	
 			debug(LOG_DEBUG, "config %s", str);
 			conf_read(str,config);
-			level = 1;
-			fw_destroy();
-			if (!fw_init()) {
-				debug(LOG_ERR, "FATAL: Failed to initialize firewall");
-				exit(1);
-			}
+			;
 			debug(LOG_DEBUG, "Auth Server Says OK" );	
 		}					
 	

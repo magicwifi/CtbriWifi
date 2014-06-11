@@ -71,10 +71,23 @@ thread_ping(void *arg)
 	pthread_cond_t		cond = PTHREAD_COND_INITIALIZER;
 	pthread_mutex_t		cond_mutex = PTHREAD_MUTEX_INITIALIZER;
 	struct	timespec	timeout;
+
+	timeout.tv_sec = time(NULL) + 30;
+	timeout.tv_nsec = 0;
+
+	/* Mutex must be locked for pthread_cond_timedwait... */
+	pthread_mutex_lock(&cond_mutex);
+
+	/* Thread safe "sleep" */
+	pthread_cond_timedwait(&cond, &cond_mutex, &timeout);
+
+	/* No longer needs to be locked */
+	pthread_mutex_unlock(&cond_mutex);
 	
 	while (1) {
 		/* Make sure we check the servers at the very begining */
 		debug(LOG_DEBUG, "Running ping()");
+		ping();
 		
 		
 		/* Sleep for config.checkinterval seconds... */
@@ -89,7 +102,6 @@ thread_ping(void *arg)
 
 		/* No longer needs to be locked */
 		pthread_mutex_unlock(&cond_mutex);
-		ping();
 	}
 }
 
